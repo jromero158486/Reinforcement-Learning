@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>RL Research Panel – Robot Car</title>
+<title>Robot RL Research Panel</title>
 
 <style>
 body {
@@ -83,13 +83,18 @@ button:active { background:#ddd; }
   transition:0.2s;
 }
 
-#qtable {
-  margin-top:10px;
-}
+#qtable { margin-top:10px; }
 
+/* Radar canvas */
+#radarCanvas {
+  background:#111;
+  border-radius:12px;
+  border: 1px solid #333;
+  margin-bottom:20px;
+}
 #log {
   background:#0e0e0e;
-  color:#0f0;
+  color:#00ff00;
   padding:10px;
   border-radius:8px;
   height:200px;
@@ -102,7 +107,7 @@ button:active { background:#ddd; }
 
 <body>
 
-<header>📡 Robot Reinforcement Learning – Research Control Panel</header>
+<header>📡 Robot RL – Research Control Panel</header>
 
 <div id="container">
 
@@ -141,6 +146,9 @@ button:active { background:#ddd; }
   <!-- RIGHT PANEL -->
   <div id="right">
 
+    <div class="sectionTitle">Live Radar (Ultrasound)</div>
+    <canvas id="radarCanvas" width="350" height="200"></canvas>
+
     <div class="sectionTitle">Q-Table (Heatmap)</div>
     <div id="qtable"></div>
 
@@ -154,18 +162,21 @@ button:active { background:#ddd; }
 <script>
 let port, reader, writer;
 let buffer = "";
+let radarDist = 0;
 
-/* ===========================================
-   Utility
-=========================================== */
+/* =======================================================
+   LOG FUNCTION
+======================================================= */
 function log(t){
   const el = document.getElementById("log");
   el.textContent += t + "\n";
   el.scrollTop = el.scrollHeight;
 }
 
+/* =======================================================
+   COLOR FOR Q-TABLE
+======================================================= */
 function valueToColor(v) {
-  // -1 → rojo | 0 → gris | +1 → verde
   let r = v < 0 ? 255 : 120 - v*120;
   let g = v > 0 ? 255 : 120 + v*120;
   return `rgb(${r},${g},120)`;
@@ -185,9 +196,59 @@ function renderQTable(q) {
   document.getElementById("qtable").innerHTML = html;
 }
 
-/* ===========================================
-   Connect to Serial (USB)
-=========================================== */
+/* =======================================================
+   RADAR DRAWING
+======================================================= */
+const radar = document.getElementById("radarCanvas");
+const ctx = radar.getContext("2d");
+
+function drawRadar() {
+  ctx.clearRect(0, 0, radar.width, radar.height);
+
+  const cx = radar.width / 2;
+  const cy = radar.height;
+  const maxRange = 100;
+
+  ctx.strokeStyle = "#444";
+  ctx.lineWidth = 1;
+  for (let r = 40; r <= maxRange; r += 20) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r * 2, Math.PI, Math.PI * 2);
+    ctx.stroke();
+  }
+
+  // Lines left-right
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(cx - 200, cy);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.moveTo(cx, cy);
+  ctx.lineTo(cx + 200, cy);
+  ctx.stroke();
+
+  // Radar point
+  let d = Math.min(radarDist, maxRange);
+  let px = cx;
+  let py = cy - d * 2;
+
+  let color = "#00ff00";
+  if (d < 15) color = "#ff0000";
+  else if (d < 30) color = "#ffaa00";
+
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.arc(px, py, 8, 0, Math.PI * 2);
+  ctx.fill();
+
+  requestAnimationFrame(drawRadar);
+}
+requestAnimationFrame(drawRadar);
+
+/* =======================================================
+   CONNECT TO SERIAL
+======================================================= */
 document.getElementById("connectBtn").onclick = async () => {
   try {
     port = await navigator.serial.requestPort();
@@ -204,9 +265,9 @@ document.getElementById("connectBtn").onclick = async () => {
   }
 };
 
-/* ===========================================
-   Read loop – listen to Arduino
-=========================================== */
+/* =======================================================
+   READING FROM ARDUINO
+======================================================= */
 async function readLoop() {
   while (true) {
     const { value, done } = await reader.read();
@@ -221,39 +282,41 @@ async function readLoop() {
       try {
         let data = JSON.parse(line);
 
-        // Telemetry
+        // Telemetry update
         if (data.dist !== undefined) {
+          radarDist = data.dist;
+
           document.getElementById("telemetry").innerHTML =
             `dist: ${data.dist}<br>ir: ${data.ir}<br>cmd: ${data.cmd}<br>reward: ${data.reward}<br>state: ${data.state}`;
         }
 
-        // Q-table
+        // Q-table update
         if (data.qtable) renderQTable(data.qtable);
 
-        // RL log
+        // RL Log
         if (data.log) log(data.log);
 
-      } catch (e) {}
+      } catch(e) {}
     }
   }
 }
 
-/* ===========================================
+/* =======================================================
    SEND COMMANDS
-=========================================== */
+======================================================= */
 async function send(cmd) {
   if (!writer) return alert("Not connected");
   await writer.write(new TextEncoder().encode(cmd));
 }
 
-/* Manual buttons (hold movement) */
+/* HOLD-TO-MOVE BUTTONS */
 const holdBtn = (id, cmd) => {
-  let btn = document.getElementById(id);
+  let b = document.getElementById(id);
 
-  btn.onmousedown = () => send(cmd);
-  btn.onmouseup   = () => send("S");
-  btn.ontouchstart = () => send(cmd);
-  btn.ontouchend   = () => send("S");
+  b.onmousedown = () => send(cmd);
+  b.onmouseup   = () => send("S");
+  b.ontouchstart = () => send(cmd);
+  b.ontouchend   = () => send("S");
 };
 
 holdBtn("upBtn", "U");
@@ -263,8 +326,7 @@ holdBtn("rightBtn", "R");
 holdBtn("stopBtn", "S");
 
 document.getElementById("manualMode").onclick = () => send("M");
-document.getElementById("autoMode").onclick = () => send("A");
-
+document.getElementById("autoMode").onclick  = () => send("A");
 </script>
 
 </body>
