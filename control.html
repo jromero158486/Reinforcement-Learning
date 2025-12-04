@@ -2,92 +2,119 @@
 <html>
 <head>
 <meta charset="utf-8">
-<title>Joystick Bluetooth Car</title>
+<title>Bluetooth Car Remote</title>
 <style>
-  body { background:#f0f0f0; text-align:center; font-family:Arial; }
-  #status { margin:20px; font-size:22px; font-weight:bold; }
-  #connect { padding:15px 25px; font-size:20px; border-radius:10px; }
-  canvas { background:#fff; border:2px solid #000; border-radius:50%; margin-top:20px; }
+  body {
+    text-align:center;
+    font-family:Arial;
+    background:#f1f1f1;
+  }
+
+  #status {
+    font-size:22px;
+    font-weight:bold;
+    margin:20px;
+  }
+
+  #connect {
+    padding:15px 30px;
+    font-size:20px;
+    border-radius:12px;
+    background:#ffd93b;
+    border:none;
+    cursor:pointer;
+    margin-bottom:20px;
+  }
+
+  .pad {
+    width:300px;
+    margin:auto;
+    background:#fff;
+    padding:20px;
+    border-radius:30px;
+    border:3px solid #ccc;
+  }
+
+  button.arrow {
+    width:90px;
+    height:90px;
+    margin:10px;
+    font-size:40px;
+    border-radius:20px;
+    border:none;
+    background:#ffef9f;
+    cursor:pointer;
+    transition:0.1s;
+  }
+
+  button.arrow:active {
+    background:#ffd93b;
+    transform:scale(0.90);
+  }
+
+  .row {
+    display:flex;
+    justify-content:center;
+  }
 </style>
 </head>
 <body>
 
-<h2>🚗 Joystick Controller</h2>
-
+<h2>🚗 Car Remote Control</h2>
 <div id="status">Disconnected</div>
 <button id="connect">🔵 Connect</button>
 
-<br>
-<canvas id="joy" width="250" height="250"></canvas>
+<div class="pad">
+  <div class="row">
+    <button class="arrow" data-cmd="U">⬆</button>
+  </div>
+
+  <div class="row">
+    <button class="arrow" data-cmd="L">⬅</button>
+    <button class="arrow" data-cmd="S">⏹</button>
+    <button class="arrow" data-cmd="R">➡</button>
+  </div>
+
+  <div class="row">
+    <button class="arrow" data-cmd="D">⬇</button>
+  </div>
+</div>
 
 <script>
 let port, writer;
-let joy = document.getElementById("joy");
-let ctx = joy.getContext("2d");
 
-let joyX = 125, joyY = 125;
-let dragging = false;
+// --- CONNECT TO SERIAL (HC-06) ---
+document.getElementById("connect").onclick = async () => {
+  try {
+    port = await navigator.serial.requestPort();
+    await port.open({ baudRate: 9600 });
 
-async function connect() {
-    try {
-        port = await navigator.serial.requestPort();
-        await port.open({ baudRate: 9600 });
+    writer = port.writable.getWriter();
 
-        writer = port.writable.getWriter();
-        document.getElementById("status").innerText = "Connected ✔";
-        document.getElementById("status").style.color = "green";
-    } catch (e) {
-        document.getElementById("status").innerText = "Connection failed";
-        document.getElementById("status").style.color = "red";
-    }
+    document.getElementById("status").innerText = "Connected ✔";
+    document.getElementById("status").style.color = "green";
+  } catch (err) {
+    document.getElementById("status").innerText = "Connection Failed";
+    document.getElementById("status").style.color = "red";
+  }
+};
+
+// --- SEND COMMAND ---
+function send(cmd) {
+  if (!writer) return alert("Connect first!");
+  writer.write(new TextEncoder().encode(cmd));
 }
 
-document.getElementById("connect").onclick = connect;
+// --- BUTTON EVENTS ---
+document.querySelectorAll(".arrow").forEach(btn => {
+  btn.onmousedown = () => send(btn.dataset.cmd);
+  btn.ontouchstart = () => send(btn.dataset.cmd);
 
-function sendJoystick(x, y) {
-    if (!writer) return;
-
-    let msg = `JS${x},${y}\n`;
-    writer.write(new TextEncoder().encode(msg));
-}
-
-function drawJoystick() {
-    ctx.clearRect(0,0,250,250);
-
-    ctx.beginPath();
-    ctx.arc(125,125,110,0,Math.PI*2);
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.arc(joyX, joyY, 30, 0, Math.PI*2);
-    ctx.fillStyle = "#00aaff";
-    ctx.fill();
-}
-
-joy.addEventListener("mousedown", e => { dragging = true; });
-joy.addEventListener("mouseup", e => {
-    dragging = false;
-    joyX = 125; joyY = 125;
-    sendJoystick(0,0);
-    drawJoystick();
+  // Stop when released
+  btn.onmouseup = () => send("S");
+  btn.ontouchend = () => send("S");
 });
-joy.addEventListener("mousemove", e => {
-    if (!dragging) return;
-    let rect = joy.getBoundingClientRect();
-    joyX = e.clientX - rect.left;
-    joyY = e.clientY - rect.top;
-
-    joyX = Math.max(20, Math.min(230, joyX));
-    joyY = Math.max(20, Math.min(230, joyY));
-
-    let X = Math.round(((joyX - 125) / 110) * 100);
-    let Y = Math.round(((125 - joyY) / 110) * 100);
-
-    sendJoystick(X, Y);
-    drawJoystick();
-});
-
-drawJoystick();
 </script>
+
 </body>
 </html>
