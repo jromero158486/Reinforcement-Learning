@@ -92,6 +92,7 @@ button:active { background:#ddd; }
   border: 1px solid #333;
   margin-bottom:20px;
 }
+
 #log {
   background:#0e0e0e;
   color:#00ff00;
@@ -129,8 +130,20 @@ button:active { background:#ddd; }
     </div>
 
     <div class="sectionTitle">Mode</div>
-    <button id="manualMode">Manual</button>
-    <button id="autoMode">Autonomous RL</button>
+
+    <label style="font-size:18px;">
+      <input type="radio" name="mode" id="manualCheck" checked>
+      Manual Control
+    </label><br>
+
+    <label style="font-size:18px;">
+      <input type="radio" name="mode" id="autoCheck">
+      Autonomous RL
+    </label><br><br>
+
+    <button id="applyModeBtn">Apply Mode</button>
+
+    <div id="modeStatus" class="statusBox">Current Mode: MANUAL</div>
 
     <div class="sectionTitle">Telemetry</div>
     <div id="telemetry" class="statusBox">
@@ -163,6 +176,7 @@ button:active { background:#ddd; }
 let port, reader, writer;
 let buffer = "";
 let radarDist = 0;
+let mode = "MANUAL";
 
 /* =======================================================
    LOG FUNCTION
@@ -246,6 +260,7 @@ function drawRadar() {
 }
 requestAnimationFrame(drawRadar);
 
+
 /* =======================================================
    CONNECT TO SERIAL
 ======================================================= */
@@ -265,8 +280,9 @@ document.getElementById("connectBtn").onclick = async () => {
   }
 };
 
+
 /* =======================================================
-   READING FROM ARDUINO
+   READ LOOP
 ======================================================= */
 async function readLoop() {
   while (true) {
@@ -274,7 +290,6 @@ async function readLoop() {
     if (done) break;
 
     buffer += new TextDecoder().decode(value);
-
     let lines = buffer.split("\n");
     buffer = lines.pop();
 
@@ -282,7 +297,6 @@ async function readLoop() {
       try {
         let data = JSON.parse(line);
 
-        // Telemetry update
         if (data.dist !== undefined) {
           radarDist = data.dist;
 
@@ -290,16 +304,14 @@ async function readLoop() {
             `dist: ${data.dist}<br>ir: ${data.ir}<br>cmd: ${data.cmd}<br>reward: ${data.reward}<br>state: ${data.state}`;
         }
 
-        // Q-table update
         if (data.qtable) renderQTable(data.qtable);
-
-        // RL Log
         if (data.log) log(data.log);
 
       } catch(e) {}
     }
   }
 }
+
 
 /* =======================================================
    SEND COMMANDS
@@ -309,14 +321,37 @@ async function send(cmd) {
   await writer.write(new TextEncoder().encode(cmd));
 }
 
-/* HOLD-TO-MOVE BUTTONS */
+/* =======================================================
+   APPLY MODE (MANUAL or RL)
+======================================================= */
+document.getElementById("applyModeBtn").onclick = () => {
+
+  if (document.getElementById("manualCheck").checked) {
+    mode = "MANUAL";
+    send("M");
+    document.getElementById("modeStatus").innerHTML = "Current Mode: MANUAL";
+    log("Mode → Manual");
+  }
+
+  if (document.getElementById("autoCheck").checked) {
+    mode = "AUTO";
+    send("A");
+    document.getElementById("modeStatus").innerHTML = "Current Mode: AUTONOMOUS RL";
+    log("Mode → Autonomous RL");
+  }
+};
+
+/* =======================================================
+   CONTROL BUTTONS (BLOCKED IN AUTO)
+======================================================= */
 const holdBtn = (id, cmd) => {
   let b = document.getElementById(id);
 
-  b.onmousedown = () => send(cmd);
-  b.onmouseup   = () => send("S");
-  b.ontouchstart = () => send(cmd);
-  b.ontouchend   = () => send("S");
+  b.onmousedown = () => { if (mode === "MANUAL") send(cmd); };
+  b.onmouseup   = () => { if (mode === "MANUAL") send("S"); };
+
+  b.ontouchstart = () => { if (mode === "MANUAL") send(cmd); };
+  b.ontouchend   = () => { if (mode === "MANUAL") send("S"); };
 };
 
 holdBtn("upBtn", "U");
@@ -325,8 +360,6 @@ holdBtn("leftBtn", "L");
 holdBtn("rightBtn", "R");
 holdBtn("stopBtn", "S");
 
-document.getElementById("manualMode").onclick = () => send("M");
-document.getElementById("autoMode").onclick  = () => send("A");
 </script>
 
 </body>
