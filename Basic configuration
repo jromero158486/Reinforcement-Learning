@@ -1,0 +1,85 @@
+// 2WD Bluetooth Car – Arduino UNO + L298N + HC-05
+
+// L298N motor connections
+#define IN1 2   // Motor A
+#define IN2 3
+#define IN3 4   // Motor B
+#define IN4 5
+
+void setup() {
+  Serial.begin(9600);   // Bluetooth HC-05 works at 9600
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+
+  // Start in STOP mode
+  Stop();
+}
+
+void loop() {
+
+  if (Serial.available() > 0) {
+    char cmd = Serial.read();
+
+    if (cmd == 'U') {
+      Forward();
+    }
+    else if (cmd == 'D') {
+      Backward();
+    }
+    else if (cmd == 'L') {
+      Left();
+    }
+    else if (cmd == 'R') {
+      Right();
+    }
+    else if (cmd == 'S') {
+      Stop();
+    }
+  }
+}
+
+// ------------------- FUNCTIONS -------------------
+
+void Forward() {
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+}
+
+void Backward() {
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+}
+
+void Left() {
+  // Left turn: right motor forward, left motor backward
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, HIGH);
+
+  digitalWrite(IN3, HIGH);
+  digitalWrite(IN4, LOW);
+}
+
+void Right() {
+  // Right turn: left motor forward, right motor backward
+  digitalWrite(IN1, HIGH);
+  digitalWrite(IN2, LOW);
+
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, HIGH);
+}
+
+void Stop() {
+  digitalWrite(IN1, LOW);
+  digitalWrite(IN2, LOW);
+
+  digitalWrite(IN3, LOW);
+  digitalWrite(IN4, LOW);
+}
