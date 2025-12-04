@@ -1,81 +1,410 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="utf-8" />
-<title>Robot Controller</title>
-<style>
-  body { font-family: Arial; background:#f0f0f0; text-align:center; }
-  #status { padding:10px; margin:10px; font-size:20px; }
-  .ok { color:green; }
-  .bad { color:red; }
-  .panel { background:white; padding:15px; width:300px; margin:auto; border-radius:12px; }
-  button { margin:8px; padding:15px 20px; font-size:20px; border-radius:10px; }
-  .telemetry { font-size:18px; margin-top:15px; text-align:left; }
-</style>
+  <meta charset="utf-8" />
+  <title>Robot Car Panel</title>
+  <style>
+    body {
+      font-family: system-ui, Arial, sans-serif;
+      background: #f3f4f6;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+
+    header {
+      padding: 12px 16px;
+      background: #111827;
+      color: #f9fafb;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    h1 {
+      font-size: 20px;
+      margin: 0;
+    }
+
+    #status {
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 14px;
+      background: #fee2e2;
+      color: #b91c1c;
+      font-weight: 600;
+    }
+
+    #status.ok {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    main {
+      max-width: 900px;
+      margin: 16px auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      padding: 0 12px 20px;
+    }
+
+    .card {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+      text-align: center;
+    }
+
+    .pad {
+      margin-top: 10px;
+    }
+
+    .row {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin: 6px 0;
+    }
+
+    button.btn-dir {
+      width: 86px;
+      height: 86px;
+      border-radius: 20px;
+      border: none;
+      font-size: 32px;
+      cursor: pointer;
+      background: #fef3c7;
+      box-shadow: 0 4px 0 #fbbf24;
+      transition: transform 0.08s, box-shadow 0.08s, background 0.1s;
+    }
+
+    button.btn-dir:active,
+    button.btn-dir.active {
+      transform: translateY(3px);
+      box-shadow: 0 1px 0 #fbbf24;
+      background: #fde68a;
+    }
+
+    button#connectBtn {
+      padding: 10px 18px;
+      border-radius: 999px;
+      border: none;
+      font-size: 15px;
+      cursor: pointer;
+      background: #2563eb;
+      color: #f9fafb;
+      font-weight: 600;
+    }
+
+    button#connectBtn:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+
+    .telemetry {
+      text-align: left;
+      font-size: 15px;
+      margin-top: 12px;
+    }
+
+    .telemetry p {
+      margin: 4px 0;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    .pill.ok {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .pill.warn {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .pill.bad {
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+
+    .cmd-label {
+      font-weight: 700;
+    }
+
+    .hint {
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: 8px;
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 14px;
+      margin-top: 8px;
+      color: #374151;
+    }
+
+    @media (max-width: 750px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
 </head>
 <body>
 
-<h2>🚗 Robot Controller + Telemetry</h2>
-
-<div id="status" class="bad">Disconnected</div>
-<button id="connectBtn">🔵 Connect</button>
-
-<div class="panel">
-  <h3>Controls</h3>
-  <button onclick="send('U')">⬆</button><br>
-  <button onclick="send('L')">⬅</button>
-  <button onclick="send('S')">⏹</button>
-  <button onclick="send('R')">➡</button><br>
-  <button onclick="send('D')">⬇</button>
-
-  <div class="telemetry">
-    <p>📏 Distance: <span id="dist">--</span> cm</p>
-    <p>🚫 IR Obstacle: <span id="ir">--</span></p>
-    <p>🧭 Command: <span id="cmd">--</span></p>
+<header>
+  <h1>🚗 Robot Car Controller</h1>
+  <div>
+    <span id="status">Disconnected</span>
+    <button id="connectBtn">🔵 Connect</button>
   </div>
-</div>
+</header>
+
+<main>
+  <!-- Panel de control -->
+  <section class="card">
+    <h2>Control Pad</h2>
+    <div class="pad">
+      <div class="row">
+        <button class="btn-dir" data-cmd="U">⬆</button>
+      </div>
+      <div class="row">
+        <button class="btn-dir" data-cmd="L">⬅</button>
+        <button class="btn-dir" data-cmd="S">⏹</button>
+        <button class="btn-dir" data-cmd="R">➡</button>
+      </div>
+      <div class="row">
+        <button class="btn-dir" data-cmd="D">⬇</button>
+      </div>
+    </div>
+    <div class="toggle-row">
+      <input type="checkbox" id="soundToggle" checked />
+      <label for="soundToggle">Beep al mover</label>
+    </div>
+    <p class="hint">Mantén presionado para moverte. Al soltar, el carro se detiene.</p>
+  </section>
+
+  <!-- Panel de telemetría -->
+  <section class="card">
+    <h2>Telemetry</h2>
+    <div class="telemetry">
+      <p>📏 Distance:
+        <span id="distVal">--</span> cm
+        <span id="distBadge" class="pill warn">N/A</span>
+      </p>
+      <p>🚫 IR Obstacle:
+        <span id="irVal">--</span>
+        <span id="irBadge" class="pill warn">Unknown</span>
+      </p>
+      <p>🧭 Command:
+        <span id="cmdVal" class="cmd-label">--</span>
+      </p>
+    </div>
+    <p class="hint">Si la distancia es muy baja o el IR detecta algo, puedes usarlo luego como castigo en RL.</p>
+  </section>
+</main>
 
 <script>
-let port, reader, writer;
+let port, writer, reader;
+let activeCmd = "S";
+let audioCtx = null;
 
-async function connect() {
-  port = await navigator.serial.requestPort();
-  await port.open({ baudRate: 9600 });
-  writer = port.writable.getWriter();
-  document.getElementById("status").textContent = "Connected ✔";
-  document.getElementById("status").className = "ok";
-  listen();
-}
+// --- Conexión Serial ---
+async function connectSerial() {
+  try {
+    port = await navigator.serial.requestPort();
+    await port.open({ baudRate: 9600 });
+    writer = port.writable.getWriter();
 
-async function listen() {
-  reader = port.readable.getReader();
-  let buffer = "";
+    document.getElementById("status").textContent = "Connected ✔";
+    document.getElementById("status").className = "ok";
+    document.getElementById("connectBtn").disabled = true;
 
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-
-    buffer += new TextDecoder().decode(value);
-    let lines = buffer.split("\n");
-    buffer = lines.pop();
-
-    for (let line of lines) {
-      try {
-        let data = JSON.parse(line);
-        document.getElementById("dist").textContent = data.dist.toFixed(1);
-        document.getElementById("ir").textContent = data.ir;
-        document.getElementById("cmd").textContent = data.cmd;
-      } catch {}
-    }
+    listenSerial();
+  } catch (err) {
+    console.error(err);
+    document.getElementById("status").textContent = "Connection failed";
+    document.getElementById("status").className = "";
   }
 }
 
-async function send(cmd) {
-  if (!writer) return alert("Connect first!");
+document.getElementById("connectBtn").addEventListener("click", connectSerial);
+
+// --- Lectura continua de telemetría ---
+async function listenSerial() {
+  reader = port.readable.getReader();
+  let buffer = "";
+
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += new TextDecoder().decode(value);
+      let lines = buffer.split("\n");
+      buffer = lines.pop();
+
+      for (let line of lines) {
+        line = line.trim();
+        if (!line) continue;
+        try {
+          const data = JSON.parse(line);
+          updateTelemetry(data);
+        } catch (e) {
+          // líneas corruptas se ignoran
+        }
+      }
+    }
+  } catch (e) {
+    console.error("Read error:", e);
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+function updateTelemetry(data) {
+  const distEl = document.getElementById("distVal");
+  const distBadge = document.getElementById("distBadge");
+  const irEl = document.getElementById("irVal");
+  const irBadge = document.getElementById("irBadge");
+  const cmdEl = document.getElementById("cmdVal");
+
+  if (typeof data.dist === "number") {
+    distEl.textContent = data.dist.toFixed(1);
+    if (data.dist < 15) {
+      distBadge.textContent = "CLOSE";
+      distBadge.className = "pill bad";
+    } else if (data.dist < 30) {
+      distBadge.textContent = "NEAR";
+      distBadge.className = "pill warn";
+    } else {
+      distBadge.textContent = "CLEAR";
+      distBadge.className = "pill ok";
+    }
+  }
+
+  if (typeof data.ir !== "undefined") {
+    irEl.textContent = data.ir;
+    if (data.ir === 0) {
+      irBadge.textContent = "OBSTACLE";
+      irBadge.className = "pill bad";
+    } else {
+      irBadge.textContent = "FREE";
+      irBadge.className = "pill ok";
+    }
+  }
+
+  if (typeof data.cmd === "string") {
+    cmdEl.textContent = data.cmd;
+  }
+}
+
+// --- Enviar comandos ---
+async function sendCmd(cmd) {
+  if (!writer) {
+    alert("Connect first!");
+    return;
+  }
+  activeCmd = cmd;
+  highlightActiveButton(cmd);
+  playBeep();
   await writer.write(new TextEncoder().encode(cmd));
 }
 
-document.getElementById("connectBtn").onclick = connect;
+// Marcar botón activo
+function highlightActiveButton(cmd) {
+  document.querySelectorAll(".btn-dir").forEach(btn => {
+    btn.classList.remove("active");
+    if (btn.dataset.cmd === cmd && cmd !== "S") {
+      btn.classList.add("active");
+    }
+  });
+  if (cmd === "S") {
+    // limpiar todos
+    document.querySelectorAll(".btn-dir").forEach(btn => btn.classList.remove("active"));
+  }
+}
+
+// --- Sonido opcional ---
+function playBeep() {
+  const enabled = document.getElementById("soundToggle").checked;
+  if (!enabled) return;
+
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = "square";
+  osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+  gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.05);
+}
+
+// --- Eventos de los botones (HOLD) ---
+function setupButtons() {
+  const btns = document.querySelectorAll(".btn-dir");
+
+  btns.forEach(btn => {
+    const cmd = btn.dataset.cmd;
+
+    // Mouse
+    btn.addEventListener("mousedown", () => {
+      if (cmd === "S") {
+        sendCmd("S");
+      } else {
+        sendCmd(cmd);
+      }
+    });
+
+    btn.addEventListener("mouseup", () => {
+      if (cmd !== "S") {
+        sendCmd("S");
+      }
+    });
+
+    btn.addEventListener("mouseleave", () => {
+      if (cmd !== "S" && activeCmd !== "S") {
+        sendCmd("S");
+      }
+    });
+
+    // Touch (móvil / touchpad)
+    btn.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      if (cmd === "S") {
+        sendCmd("S");
+      } else {
+        sendCmd(cmd);
+      }
+    }, { passive: false });
+
+    btn.addEventListener("touchend", (e) => {
+      e.preventDefault();
+      if (cmd !== "S") {
+        sendCmd("S");
+      }
+    }, { passive: false });
+  });
+}
+
+setupButtons();
 </script>
 
 </body>
