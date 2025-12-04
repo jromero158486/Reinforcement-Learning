@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>RL Research Panel – Robot Car</title>
+
+<style>
+body {
+  margin:0;
+  font-family: Arial, sans-serif;
+  background:#f5f7fa;
+  color:#222;
+}
+
+header {
+  background:#1e2a38;
+  color:white;
+  padding:14px 20px;
+  font-size:22px;
+  font-weight:bold;
+}
+
+#container {
+  display:flex;
+  height: calc(100vh - 60px);
+}
+
+/* Left column – controls */
+#left {
+  width:40%;
+  border-right:1px solid #ccc;
+  padding:20px;
+}
+
+.sectionTitle {
+  font-size:20px;
+  margin-top:10px;
+  border-bottom:2px solid #ddd;
+  margin-bottom:10px;
+}
+
+button {
+  padding:12px 18px;
+  font-size:18px;
+  margin:6px;
+  border-radius:8px;
+  cursor:pointer;
+  border:1px solid #bbb;
+  background:white;
+}
+button:active { background:#ddd; }
+
+.arrowBtn {
+  width:80px;
+  height:80px;
+  font-size:30px;
+}
+
+.statusBox {
+  padding:10px;
+  background:white;
+  border-radius:8px;
+  margin-top:10px;
+  border:1px solid #ccc;
+}
+
+/* Right column – Q table + console */
+#right {
+  width:60%;
+  padding:20px;
+  overflow:auto;
+}
+
+.qcell {
+  width:80px;
+  height:30px;
+  display:inline-block;
+  margin:4px;
+  border-radius:6px;
+  text-align:center;
+  line-height:30px;
+  font-size:14px;
+  transition:0.2s;
+}
+
+#qtable {
+  margin-top:10px;
+}
+
+#log {
+  background:#0e0e0e;
+  color:#0f0;
+  padding:10px;
+  border-radius:8px;
+  height:200px;
+  overflow-y:auto;
+  font-family: monospace;
+  font-size:13px;
+}
+</style>
+</head>
+
+<body>
+
+<header>📡 Robot Reinforcement Learning – Research Control Panel</header>
+
+<div id="container">
+
+  <!-- LEFT PANEL -->
+  <div id="left">
+
+    <div class="sectionTitle">Connection</div>
+    <button id="connectBtn">🔌 Connect</button>
+    <div id="status" class="statusBox">Disconnected</div>
+
+    <div class="sectionTitle">Manual Control</div>
+
+    <div>
+      <button class="arrowBtn" id="upBtn">⬆</button><br>
+      <button class="arrowBtn" id="leftBtn">⬅</button>
+      <button class="arrowBtn" id="stopBtn">⏹</button>
+      <button class="arrowBtn" id="rightBtn">➡</button><br>
+      <button class="arrowBtn" id="downBtn">⬇</button>
+    </div>
+
+    <div class="sectionTitle">Mode</div>
+    <button id="manualMode">Manual</button>
+    <button id="autoMode">Autonomous RL</button>
+
+    <div class="sectionTitle">Telemetry</div>
+    <div id="telemetry" class="statusBox">
+      dist: -- cm<br>
+      ir: --<br>
+      cmd: --<br>
+      reward: --<br>
+      state: --<br>
+    </div>
+
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div id="right">
+
+    <div class="sectionTitle">Q-Table (Heatmap)</div>
+    <div id="qtable"></div>
+
+    <div class="sectionTitle">RL Console</div>
+    <pre id="log"></pre>
+
+  </div>
+</div>
+
+
+<script>
+let port, reader, writer;
+let buffer = "";
+
+/* ===========================================
+   Utility
+=========================================== */
+function log(t){
+  const el = document.getElementById("log");
+  el.textContent += t + "\n";
+  el.scrollTop = el.scrollHeight;
+}
+
+function valueToColor(v) {
+  // -1 → rojo | 0 → gris | +1 → verde
+  let r = v < 0 ? 255 : 120 - v*120;
+  let g = v > 0 ? 255 : 120 + v*120;
+  return `rgb(${r},${g},120)`;
+}
+
+function renderQTable(q) {
+  let html = "";
+  for (let s = 0; s < q.length; s++) {
+    html += `<div><b>State ${s}</b>: `;
+    for (let a = 0; a < q[s].length; a++) {
+      let val = q[s][a];
+      let color = valueToColor(val);
+      html += `<div class='qcell' style='background:${color}'>${val.toFixed(2)}</div>`;
+    }
+    html += "</div>";
+  }
+  document.getElementById("qtable").innerHTML = html;
+}
+
+/* ===========================================
+   Connect to Serial (USB)
+=========================================== */
+document.getElementById("connectBtn").onclick = async () => {
+  try {
+    port = await navigator.serial.requestPort();
+    await port.open({ baudRate: 9600 });
+
+    reader = port.readable.getReader();
+    writer = port.writable.getWriter();
+
+    document.getElementById("status").innerHTML = "Connected ✔";
+
+    readLoop();
+  } catch (e) {
+    document.getElementById("status").innerHTML = "Connection Failed";
+  }
+};
+
+/* ===========================================
+   Read loop – listen to Arduino
+=========================================== */
+async function readLoop() {
+  while (true) {
+    const { value, done } = await reader.read();
+    if (done) break;
+
+    buffer += new TextDecoder().decode(value);
+
+    let lines = buffer.split("\n");
+    buffer = lines.pop();
+
+    for (let line of lines) {
+      try {
+        let data = JSON.parse(line);
+
+        // Telemetry
+        if (data.dist !== undefined) {
+          document.getElementById("telemetry").innerHTML =
+            `dist: ${data.dist}<br>ir: ${data.ir}<br>cmd: ${data.cmd}<br>reward: ${data.reward}<br>state: ${data.state}`;
+        }
+
+        // Q-table
+        if (data.qtable) renderQTable(data.qtable);
+
+        // RL log
+        if (data.log) log(data.log);
+
+      } catch (e) {}
+    }
+  }
+}
+
+/* ===========================================
+   SEND COMMANDS
+=========================================== */
+async function send(cmd) {
+  if (!writer) return alert("Not connected");
+  await writer.write(new TextEncoder().encode(cmd));
+}
+
+/* Manual buttons (hold movement) */
+const holdBtn = (id, cmd) => {
+  let btn = document.getElementById(id);
+
+  btn.onmousedown = () => send(cmd);
+  btn.onmouseup   = () => send("S");
+  btn.ontouchstart = () => send(cmd);
+  btn.ontouchend   = () => send("S");
+};
+
+holdBtn("upBtn", "U");
+holdBtn("downBtn", "D");
+holdBtn("leftBtn", "L");
+holdBtn("rightBtn", "R");
+holdBtn("stopBtn", "S");
+
+document.getElementById("manualMode").onclick = () => send("M");
+document.getElementById("autoMode").onclick = () => send("A");
+
+</script>
+
+</body>
+</html>
