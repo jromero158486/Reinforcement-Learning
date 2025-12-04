@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Control Manual del Robot</title>
+<style>
+  body { 
+    font-family: Arial; 
+    text-align: center; 
+    margin-top: 40px;
+  }
+  button {
+    width: 120px;
+    height: 60px;
+    margin: 10px;
+    font-size: 20px;
+    border-radius: 10px;
+  }
+</style>
+</head>
+<body>
+
+<h1>Control Manual del Robot</h1>
+<button id="btnConnect">🔌 Conectar</button>
+
+<div style="margin-top:30px;">
+  <button onclick="sendCmd('U')">⬆️ Arriba</button><br>
+  <button onclick="sendCmd('L')">⬅️ Izquierda</button>
+  <button onclick="sendCmd('S')">⏹ Stop</button>
+  <button onclick="sendCmd('R')">➡️ Derecha</button><br>
+  <button onclick="sendCmd('D')">⬇️ Abajo</button>
+</div>
+
+<h3>Controles del teclado:</h3>
+<p>⬆️ = U,  ⬇️ = D,  ⬅️ = L,  ➡️ = R,  Espacio = S</p>
+
+<script>
+let port, writer;
+
+document.getElementById("btnConnect").onclick = async () => {
+  port = await navigator.serial.requestPort();
+  await port.open({ baudRate: 115200 });
+  writer = port.writable.getWriter();
+  alert("Conectado al robot");
+};
+
+async function sendCmd(c) {
+  if (!writer) return alert("Primero conecta el puerto.");
+  await writer.write(new TextEncoder().encode(c));
+  console.log("Enviado:", c);
+}
+
+// ---- CONTROL POR TECLADO ----
+document.addEventListener("keydown", (e) => {
+  if (e.key === "ArrowUp") sendCmd('U');
+  if (e.key === "ArrowDown") sendCmd('D');
+  if (e.key === "ArrowLeft") sendCmd('L');
+  if (e.key === "ArrowRight") sendCmd('R');
+  if (e.key === " ") sendCmd('S'); // espacio
+});
+</script>
+
+</body>
+</html>
