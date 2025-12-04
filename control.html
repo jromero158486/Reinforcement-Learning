@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Bluetooth Car Controller</title>
+
+  <style>
+    body {
+      background: #f5f5f5;
+      font-family: Arial;
+      text-align: center;
+    }
+    button {
+      width: 120px;
+      height: 120px;
+      font-size: 24px;
+      margin: 10px;
+      border-radius: 50%;
+    }
+    #connect {
+      width: 200px;
+      height: 60px;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>🚗 Bluetooth Car Controller</h1>
+  <button id="connect">🔗 Conectar</button>
+
+  <br><br>
+
+  <div>
+    <button onclick="send('F')">⬆️</button>
+  </div>
+
+  <div>
+    <button onclick="send('L')">⬅️</button>
+    <button onclick="send('S')">⏹️</button>
+    <button onclick="send('R')">➡️</button>
+  </div>
+
+  <div>
+    <button onclick="send('B')">⬇️</button>
+  </div>
+
+  <script>
+    let device;
+    let server;
+    let writer;
+
+    document.getElementById('connect').addEventListener('click', async () => {
+      try {
+        device = await navigator.bluetooth.requestDevice({
+          acceptAllDevices: true,
+          optionalServices: ['00001101-0000-1000-8000-00805f9b34fb']
+        });
+
+        server = await device.gatt.connect();
+        const service = await server.getPrimaryService('00001101-0000-1000-8000-00805f9b34fb');
+        const characteristic = await service.getCharacteristic('00001101-0000-1000-8000-00805f9b34fb');
+
+        writer = characteristic;
+
+        alert("¡Conectado! 🎉");
+      } catch (error) {
+        alert("Error: " + error);
+      }
+    });
+
+    function send(cmd) {
+      if (writer) {
+        const data = new TextEncoder().encode(cmd);
+        writer.writeValue(data);
+      } else {
+        alert("Primero conecta el Bluetooth.");
+      }
+    }
+  </script>
+</body>
+</html>
