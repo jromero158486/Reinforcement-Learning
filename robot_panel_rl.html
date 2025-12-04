@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Robot Car RL Panel</title>
+  <style>
+    body {
+      font-family: system-ui, Arial, sans-serif;
+      background: #f3f4f6;
+      margin: 0;
+      padding: 0;
+      text-align: center;
+    }
+
+    header {
+      padding: 12px 16px;
+      background: #111827;
+      color: #f9fafb;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    h1 {
+      font-size: 20px;
+      margin: 0;
+    }
+
+    #status {
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 14px;
+      background: #fee2e2;
+      color: #b91c1c;
+      font-weight: 600;
+    }
+
+    #status.ok {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    #connectBtn {
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: none;
+      font-size: 14px;
+      cursor: pointer;
+      background: #2563eb;
+      color: #f9fafb;
+      font-weight: 600;
+    }
+
+    #connectBtn:disabled {
+      opacity: 0.6;
+      cursor: default;
+    }
+
+    .rl-toggle {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 14px;
+      color: #e5e7eb;
+    }
+
+    main {
+      max-width: 900px;
+      margin: 16px auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      padding: 0 12px 20px;
+    }
+
+    .card {
+      background: #ffffff;
+      border-radius: 16px;
+      padding: 16px;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+      text-align: center;
+    }
+
+    .pad {
+      margin-top: 10px;
+    }
+
+    .row {
+      display: flex;
+      justify-content: center;
+      gap: 10px;
+      margin: 6px 0;
+    }
+
+    button.btn-dir {
+      width: 86px;
+      height: 86px;
+      border-radius: 20px;
+      border: none;
+      font-size: 32px;
+      cursor: pointer;
+      background: #fef3c7;
+      box-shadow: 0 4px 0 #fbbf24;
+      transition: transform 0.08s, box-shadow 0.08s, background 0.1s;
+    }
+
+    button.btn-dir:active,
+    button.btn-dir.active {
+      transform: translateY(3px);
+      box-shadow: 0 1px 0 #fbbf24;
+      background: #fde68a;
+    }
+
+    .telemetry {
+      text-align: left;
+      font-size: 15px;
+      margin-top: 12px;
+    }
+
+    .telemetry p {
+      margin: 4px 0;
+    }
+
+    .pill {
+      display: inline-block;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 13px;
+    }
+
+    .pill.ok {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .pill.warn {
+      background: #fef3c7;
+      color: #92400e;
+    }
+
+    .pill.bad {
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+
+    .cmd-label {
+      font-weight: 700;
+    }
+
+    .hint {
+      font-size: 12px;
+      color: #6b7280;
+      margin-top: 8px;
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      font-size: 14px;
+      margin-top: 8px;
+      color: #374151;
+    }
+
+    @media (max-width: 750px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🚗 Robot Car Controller + RL</h1>
+  <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+    <span id="status">Disconnected</span>
+    <button id="connectBtn">🔵 Connect</button>
+    <div class="rl-toggle">
+      <input type="checkbox" id="rlToggle">
+      <label for="rlToggle">RL Autopilot</label>
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- Panel de control -->
+  <section class="card">
+    <h2>Control Pad</h2>
+    <div class="pad">
+      <div class="row">
+        <button class="btn-dir" data-cmd="U">⬆</button>
+      </div>
+      <div class="row">
+        <button class="btn-dir" data-cmd="L">⬅</button>
+        <button class="btn-dir" data-cmd="S">⏹</button>
+        <button class="btn-dir" data-cmd="R">➡</button>
+      </div>
+      <div class="row">
+        <button class="btn-dir" data-cmd="D">⬇</button>
+      </div>
+    </div>
+    <div class="toggle-row">
+      <input type="checkbox" id="soundToggle" checked />
+      <label for="soundToggle">Beep al mover</label>
+    </div>
+    <p class="hint">Manual: mantén presionado para moverte. RL: el agente decide las acciones.</p>
+  </section>
+
+  <!-- Panel de telemetría -->
+  <section class="card">
+    <h2>Telemetry</h2>
+    <div class="telemetry">
+      <p>📏 Distance:
+        <span id="distVal">--</span> cm
+        <span id="distBadge" class="pill warn">N/A</span>
+      </p>
+      <p>🚫 IR Obstacle:
+        <span id="irVal">--</span>
+        <span id="irBadge" class="pill warn">Unknown</span>
+      </p>
+      <p>🧭 Command:
+        <span id="cmdVal" class="cmd-label">--</span>
+      </p>
+    </div>
+    <p class="hint">
+      RL usa dist + IR como estado. Recompensa negativa si está muy cerca o hay obstáculo; positiva si avanza seguro.
+    </p>
+  </section>
+</main>
+
+<script>
+let port, writer, reader;
+let activeCmd = "S";
+let audioCtx = null;
+
+// ===== RL SETUP =====
+const ACTIONS = ["S", "U", "L", "R", "D"];
+let Q = {};                 // Q[state][action]
+let lastState = null;
+let lastAction = null;
+let rlMode = false;
+
+const alpha = 0.5;          // learning rate
+const gamma = 0.9;          // discount
+let epsilon = 0.3;          // exploration
+
+let latestDist = null;
+let latestIr = null;
+
+// --- RL helpers ---
+function getState(dist, ir) {
+  let bucket;
+  if (dist < 10)      bucket = "very_close";
+  else if (dist < 20) bucket = "close";
+  else if (dist < 35) bucket = "mid";
+  else                bucket = "far";
+  return bucket + "_ir" + ir;
+}
+
+function ensureStateQ(state) {
+  if (!Q[state]) {
+    Q[state] = {};
+    ACTIONS.forEach(a => Q[state][a] = 0);
+  }
+}
+
+function computeReward(dist, ir, action) {
+  // penalizar choques o muy cerca
+  if (ir === 0 || dist < 10) return -10.0;
+
+  // moverse hacia adelante con espacio
+  if (action === "U" && dist > 20) return 1.0;
+
+  // retroceder cuando está cerca
+  if (action === "D" && dist < 20) return 0.5;
+
+  // STOP: pequeña penalización para no quedarse quieto
+  if (action === "S") return -0.1;
+
+  // giros u otros movimientos: pequeño costo
+  return -0.05;
+}
+
+// ===== SERIAL =====
+async function connectSerial() {
+  try {
+    port = await navigator.serial.requestPort();
+    await port.open({ baudRate: 9600 });
+    writer = port.writable.getWriter();
+
+    document.getElementById("status").textContent = "Connected ✔";
+    document.getElementById("status").className = "ok";
+    document.getElementById("connectBtn").disabled = true;
+
+    listenSerial();
+  } catch (err) {
+    console.error(err);
+    document.getElementById("status").textContent = "Connection failed";
+    document.getElementById("status").className = "";
+  }
+}
+
+document.getElementById("connectBtn").addEventListener("click", connectSerial);
+
+// lectura continua de telemetría
+async function listenSerial() {
+  reader = port.readable.getReader();
+  let buffer = "";
+
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += new TextDecoder().decode(value);
+      let lines = buffer.split("\n");
+      buffer = lines.pop();
+
+      for (let line of lines) {
+        line = line.trim();
+        if (!line) continue;
+        try {
+          const data = JSON.parse(line);
+          updateTelemetry(data);
+          if (rlMode) rlStep(data);
+        } catch (e) {
+          // si no es JSON, ignorar
+        }
+      }
+    }
+  } catch (e) {
+    console.error("Read error:", e);
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+// actualizar UI de telemetría
+function updateTelemetry(data) {
+  const distEl = document.getElementById("distVal");
+  const distBadge = document.getElementById("distBadge");
+  const irEl = document.getElementById("irVal");
+  const irBadge = document.getElementById("irBadge");
+  const cmdEl = document.getElementById("cmdVal");
+
+  if (typeof data.dist === "number") {
+    latestDist = data.dist;
+    distEl.textContent = data.dist.toFixed(1);
+    if (data.dist < 15) {
+      distBadge.textContent = "CLOSE";
+      distBadge.className = "pill bad";
+    } else if (data.dist < 30) {
+      distBadge.textContent = "NEAR";
+      distBadge.className = "pill warn";
+    } else {
+      distBadge.textContent = "CLEAR";
+      distBadge.className = "pill ok";
+    }
+  }
+
+  if (typeof data.ir !== "undefined") {
+    latestIr = data.ir;
+    irEl.textContent = data.ir;
+    if (data.ir === 0) {
+      irBadge.textContent = "OBSTACLE";
+      irBadge.className = "pill bad";
+    } else {
+      irBadge.textContent = "FREE";
+      irBadge.className = "pill ok";
+    }
+  }
+
+  if (typeof data.cmd === "string") {
+    cmdEl.textContent = data.cmd;
+  }
+}
+
+// ===== RL STEP =====
+function rlStep(data) {
+  if (typeof data.dist !== "number" || typeof data.ir === "undefined") return;
+
+  const dist = data.dist;
+  const ir = data.ir;
+
+  const sPrime = getState(dist, ir);
+  ensureStateQ(sPrime);
+
+  // actualizar Q con (s, a, r, s')
+  if (lastState && lastAction) {
+    ensureStateQ(lastState);
+    const r = computeReward(dist, ir, lastAction);
+    const qsa = Q[lastState][lastAction];
+    const maxNext = Math.max(...ACTIONS.map(a => Q[sPrime][a]));
+    Q[lastState][lastAction] = (1 - alpha) * qsa + alpha * (r + gamma * maxNext);
+    // opcional: log
+    // console.log("Update", lastState, lastAction, "->", Q[lastState][lastAction].toFixed(2), "r=", r);
+  }
+
+  // elegir siguiente acción (ε-greedy)
+  let nextAction;
+  if (Math.random() < epsilon) {
+    nextAction = ACTIONS[Math.floor(Math.random() * ACTIONS.length)];
+  } else {
+    const vals = Q[sPrime];
+    let best = ACTIONS[0];
+    let bestVal = vals[best];
+    for (let a of ACTIONS) {
+      if (vals[a] > bestVal) {
+        bestVal = vals[a];
+        best = a;
+      }
+    }
+    nextAction = best;
+  }
+
+  lastState = sPrime;
+  lastAction = nextAction;
+
+  // mandar acción al robot
+  sendCmd(nextAction, /*fromRL=*/true);
+}
+
+// ===== Enviar comandos =====
+async function sendCmd(cmd, fromRL = false) {
+  if (!writer) {
+    if (!fromRL) alert("Connect first!");
+    return;
+  }
+
+  // si RL está activo, los botones manuales no deberían mandar (pero dejamos STOP)
+  if (rlMode && !fromRL && cmd !== "S") {
+    console.log("En RL mode, ignoring manual cmd:", cmd);
+    return;
+  }
+
+  activeCmd = cmd;
+  highlightActiveButton(cmd);
+  if (!fromRL) playBeep();
+  await writer.write(new TextEncoder().encode(cmd));
+}
+
+// marcar botón activo
+function highlightActiveButton(cmd) {
+  document.querySelectorAll(".btn-dir").forEach(btn => {
+    btn.classList.remove("active");
+    if (btn.dataset.cmd === cmd && cmd !== "S") {
+      btn.classList.add("active");
+    }
+  });
+  if (cmd === "S") {
+    document.querySelectorAll(".btn-dir").forEach(btn => btn.classList.remove("active"));
+  }
+}
+
+// ===== Sonido opcional =====
+function playBeep() {
+  const enabled = document.getElementById("soundToggle").checked;
+  if (!enabled) return;
+
+  if (!audioCtx) {
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+
+  const osc = audioCtx.createOscillator();
+  const gain = audioCtx.createGain();
+  osc.type = "square";
+  osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+  gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+
+  osc.connect(gain).connect(audioCtx.destination);
+  osc.start();
+  osc.stop(audioCtx.currentTime + 0.05);
+}
+
+// ===== Eventos de botones (HOLD manual) =====
+function setupButtons() {
+  const btns = document.querySelectorAll(".btn-dir");
+
+  btns.forEach(btn => {
+    const cmd = btn.dataset.cmd;
+
+    // Mouse
+    btn.addEventListener("mousedown", () => {
+      sendCmd(cmd);
+    });
+
+    btn.addEventListener("mouseup", () => {
+      if (cmd !== "S") sendCmd("S");
+    });
+
+    btn.addEventListener("mouseleave", () => {
+      if (cmd !== "S" && activeCmd !== "S") {
+        sendCmd("S");
+      }
+    });
+
+    // Touch
+    btn.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      sendCmd(cmd);
+    }, { passive: false });
+
+    btn.addEventListener("touchend", (e) => {
+      e.preventDefault();
+      if (cmd !== "S") sendCmd("S");
+    }, { passive: false });
+  });
+}
+
+setupButtons();
+
+// ===== Toggle RL =====
+document.getElementById("rlToggle").addEventListener("change", (e) => {
+  rlMode = e.target.checked;
+  lastState = null;
+  lastAction = null;
+  console.log("RL mode:", rlMode);
+  if (rlMode) {
+    // al activar RL, asegurar STOP para empezar limpio
+    sendCmd("S", true);
+  }
+});
+</script>
+
+</body>
+</html>
