@@ -1,366 +1,129 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-<meta charset="utf-8">
-<title>Robot RL Research Panel</title>
+  <meta charset="UTF-8">
+  <title>Control Bluetooth Carro U/D/L/R/S</title>
 
-<style>
-body {
-  margin:0;
-  font-family: Arial, sans-serif;
-  background:#f5f7fa;
-  color:#222;
-}
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-header {
-  background:#1e2a38;
-  color:white;
-  padding:14px 20px;
-  font-size:22px;
-  font-weight:bold;
-}
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 18px;
+      margin-top: 25px;
+    }
 
-#container {
-  display:flex;
-  height: calc(100vh - 60px);
-}
+    h2 { margin-bottom: 5px; }
 
-/* Left column – controls */
-#left {
-  width:40%;
-  border-right:1px solid #ccc;
-  padding:20px;
-}
+    .buttons {
+      display: grid;
+      grid-template-columns: repeat(3, 80px);
+      grid-template-rows: repeat(3, 60px);
+      gap: 12px;
+    }
 
-.sectionTitle {
-  font-size:20px;
-  margin-top:10px;
-  border-bottom:2px solid #ddd;
-  margin-bottom:10px;
-}
+    button {
+      border: none;
+      border-radius: 10px;
+      font-size: 18px;
+      cursor: pointer;
+      background: #2563eb;
+      color: white;
+    }
 
-button {
-  padding:12px 18px;
-  font-size:18px;
-  margin:6px;
-  border-radius:8px;
-  cursor:pointer;
-  border:1px solid #bbb;
-  background:white;
-}
-button:active { background:#ddd; }
+    button:active {
+      background: #60a5fa;
+    }
 
-.arrowBtn {
-  width:80px;
-  height:80px;
-  font-size:30px;
-}
+    #stopBtn {
+      background: #dc2626;
+    }
 
-.statusBox {
-  padding:10px;
-  background:white;
-  border-radius:8px;
-  margin-top:10px;
-  border:1px solid #ccc;
-}
+    #connectBtn {
+      background: #16a34a;
+      padding: 10px 20px;
+      border-radius: 10px;
+      font-size: 15px;
+    }
 
-/* Right column – Q table + console */
-#right {
-  width:60%;
-  padding:20px;
-  overflow:auto;
-}
-
-.qcell {
-  width:80px;
-  height:30px;
-  display:inline-block;
-  margin:4px;
-  border-radius:6px;
-  text-align:center;
-  line-height:30px;
-  font-size:14px;
-  transition:0.2s;
-}
-
-#qtable { margin-top:10px; }
-
-/* Radar canvas */
-#radarCanvas {
-  background:#111;
-  border-radius:12px;
-  border: 1px solid #333;
-  margin-bottom:20px;
-}
-
-#log {
-  background:#0e0e0e;
-  color:#00ff00;
-  padding:10px;
-  border-radius:8px;
-  height:200px;
-  overflow-y:auto;
-  font-family: monospace;
-  font-size:13px;
-}
-</style>
+    #status {
+      font-size: 14px;
+      color: #93c5fd;
+    }
+  </style>
 </head>
 
 <body>
 
-<header>📡 Robot RL – Research Control Panel</header>
+  <h2>Control del Carro por Bluetooth</h2>
+  <p>U = Avanzar | D = Retroceder | L = Izquierda | R = Derecha | S = Stop</p>
 
-<div id="container">
+  <button id="connectBtn">🔌 Conectar Bluetooth</button>
+  <div id="status">No conectado</div>
 
-  <!-- LEFT PANEL -->
-  <div id="left">
+  <div class="buttons">
+    <div></div>
+    <button data-cmd="U">⬆️</button>
+    <div></div>
 
-    <div class="sectionTitle">Connection</div>
-    <button id="connectBtn">🔌 Connect</button>
-    <div id="status" class="statusBox">Disconnected</div>
+    <button data-cmd="L">⬅️</button>
+    <button id="stopBtn" data-cmd="S">⏹</button>
+    <button data-cmd="R">➡️</button>
 
-    <div class="sectionTitle">Manual Control</div>
-
-    <div>
-      <button class="arrowBtn" id="upBtn">⬆</button><br>
-      <button class="arrowBtn" id="leftBtn">⬅</button>
-      <button class="arrowBtn" id="stopBtn">⏹</button>
-      <button class="arrowBtn" id="rightBtn">➡</button><br>
-      <button class="arrowBtn" id="downBtn">⬇</button>
-    </div>
-
-    <div class="sectionTitle">Mode</div>
-
-    <label style="font-size:18px;">
-      <input type="radio" name="mode" id="manualCheck" checked>
-      Manual Control
-    </label><br>
-
-    <label style="font-size:18px;">
-      <input type="radio" name="mode" id="autoCheck">
-      Autonomous RL
-    </label><br><br>
-
-    <button id="applyModeBtn">Apply Mode</button>
-
-    <div id="modeStatus" class="statusBox">Current Mode: MANUAL</div>
-
-    <div class="sectionTitle">Telemetry</div>
-    <div id="telemetry" class="statusBox">
-      dist: -- cm<br>
-      ir: --<br>
-      cmd: --<br>
-      reward: --<br>
-      state: --<br>
-    </div>
-
+    <div></div>
+    <button data-cmd="D">⬇️</button>
+    <div></div>
   </div>
 
-  <!-- RIGHT PANEL -->
-  <div id="right">
+  <script>
+    let port = null;
+    let writer = null;
 
-    <div class="sectionTitle">Live Radar (Ultrasound)</div>
-    <canvas id="radarCanvas" width="350" height="200"></canvas>
+    const statusEl = document.getElementById("status");
+    const connectBtn = document.getElementById("connectBtn");
+    const buttons = document.querySelectorAll("button[data-cmd]");
 
-    <div class="sectionTitle">Q-Table (Heatmap)</div>
-    <div id="qtable"></div>
-
-    <div class="sectionTitle">RL Console</div>
-    <pre id="log"></pre>
-
-  </div>
-</div>
-
-
-<script>
-let port, reader, writer;
-let buffer = "";
-let radarDist = 0;
-let mode = "MANUAL";
-
-/* =======================================================
-   LOG FUNCTION
-======================================================= */
-function log(t){
-  const el = document.getElementById("log");
-  el.textContent += t + "\n";
-  el.scrollTop = el.scrollHeight;
-}
-
-/* =======================================================
-   COLOR FOR Q-TABLE
-======================================================= */
-function valueToColor(v) {
-  let r = v < 0 ? 255 : 120 - v*120;
-  let g = v > 0 ? 255 : 120 + v*120;
-  return `rgb(${r},${g},120)`;
-}
-
-function renderQTable(q) {
-  let html = "";
-  for (let s = 0; s < q.length; s++) {
-    html += `<div><b>State ${s}</b>: `;
-    for (let a = 0; a < q[s].length; a++) {
-      let val = q[s][a];
-      let color = valueToColor(val);
-      html += `<div class='qcell' style='background:${color}'>${val.toFixed(2)}</div>`;
-    }
-    html += "</div>";
-  }
-  document.getElementById("qtable").innerHTML = html;
-}
-
-/* =======================================================
-   RADAR DRAWING
-======================================================= */
-const radar = document.getElementById("radarCanvas");
-const ctx = radar.getContext("2d");
-
-function drawRadar() {
-  ctx.clearRect(0, 0, radar.width, radar.height);
-
-  const cx = radar.width / 2;
-  const cy = radar.height;
-  const maxRange = 100;
-
-  ctx.strokeStyle = "#444";
-  ctx.lineWidth = 1;
-  for (let r = 40; r <= maxRange; r += 20) {
-    ctx.beginPath();
-    ctx.arc(cx, cy, r * 2, Math.PI, Math.PI * 2);
-    ctx.stroke();
-  }
-
-  // Lines left-right
-  ctx.beginPath();
-  ctx.moveTo(cx, cy);
-  ctx.lineTo(cx - 200, cy);
-  ctx.stroke();
-
-  ctx.beginPath();
-  ctx.moveTo(cx, cy);
-  ctx.lineTo(cx + 200, cy);
-  ctx.stroke();
-
-  // Radar point
-  let d = Math.min(radarDist, maxRange);
-  let px = cx;
-  let py = cy - d * 2;
-
-  let color = "#00ff00";
-  if (d < 15) color = "#ff0000";
-  else if (d < 30) color = "#ffaa00";
-
-  ctx.fillStyle = color;
-  ctx.beginPath();
-  ctx.arc(px, py, 8, 0, Math.PI * 2);
-  ctx.fill();
-
-  requestAnimationFrame(drawRadar);
-}
-requestAnimationFrame(drawRadar);
-
-
-/* =======================================================
-   CONNECT TO SERIAL
-======================================================= */
-document.getElementById("connectBtn").onclick = async () => {
-  try {
-    port = await navigator.serial.requestPort();
-    await port.open({ baudRate: 9600 });
-
-    reader = port.readable.getReader();
-    writer = port.writable.getWriter();
-
-    document.getElementById("status").innerHTML = "Connected ✔";
-
-    readLoop();
-  } catch (e) {
-    document.getElementById("status").innerHTML = "Connection Failed";
-  }
-};
-
-
-/* =======================================================
-   READ LOOP
-======================================================= */
-async function readLoop() {
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-
-    buffer += new TextDecoder().decode(value);
-    let lines = buffer.split("\n");
-    buffer = lines.pop();
-
-    for (let line of lines) {
+    async function connectSerial() {
       try {
-        let data = JSON.parse(line);
+        port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 9600 });
 
-        if (data.dist !== undefined) {
-          radarDist = data.dist;
+        writer = port.writable.getWriter();
 
-          document.getElementById("telemetry").innerHTML =
-            `dist: ${data.dist}<br>ir: ${data.ir}<br>cmd: ${data.cmd}<br>reward: ${data.reward}<br>state: ${data.state}`;
-        }
-
-        if (data.qtable) renderQTable(data.qtable);
-        if (data.log) log(data.log);
-
-      } catch(e) {}
+        statusEl.textContent = "✅ Conectado al HC-05 / HC-06";
+      } catch (err) {
+        statusEl.textContent = "❌ Error: " + err;
+      }
     }
-  }
-}
 
+    async function sendCommand(cmd) {
+      if (!writer) {
+        statusEl.textContent = "⚠️ Primero conecta el Bluetooth";
+        return;
+      }
 
-/* =======================================================
-   SEND COMMANDS
-======================================================= */
-async function send(cmd) {
-  if (!writer) return alert("Not connected");
-  await writer.write(new TextEncoder().encode(cmd));
-}
+      const data = new TextEncoder().encode(cmd);
+      await writer.write(data);
 
-/* =======================================================
-   APPLY MODE (MANUAL or RL)
-======================================================= */
-document.getElementById("applyModeBtn").onclick = () => {
+      statusEl.textContent = "📤 Enviado: " + cmd;
+    }
 
-  if (document.getElementById("manualCheck").checked) {
-    mode = "MANUAL";
-    send("M");
-    document.getElementById("modeStatus").innerHTML = "Current Mode: MANUAL";
-    log("Mode → Manual");
-  }
+    connectBtn.addEventListener("click", () => {
+      connectSerial();
+    });
 
-  if (document.getElementById("autoCheck").checked) {
-    mode = "AUTO";
-    send("A");
-    document.getElementById("modeStatus").innerHTML = "Current Mode: AUTONOMOUS RL";
-    log("Mode → Autonomous RL");
-  }
-};
-
-/* =======================================================
-   CONTROL BUTTONS (BLOCKED IN AUTO)
-======================================================= */
-const holdBtn = (id, cmd) => {
-  let b = document.getElementById(id);
-
-  b.onmousedown = () => { if (mode === "MANUAL") send(cmd); };
-  b.onmouseup   = () => { if (mode === "MANUAL") send("S"); };
-
-  b.ontouchstart = () => { if (mode === "MANUAL") send(cmd); };
-  b.ontouchend   = () => { if (mode === "MANUAL") send("S"); };
-};
-
-holdBtn("upBtn", "U");
-holdBtn("downBtn", "D");
-holdBtn("leftBtn", "L");
-holdBtn("rightBtn", "R");
-holdBtn("stopBtn", "S");
-
-</script>
+    buttons.forEach(btn => {
+      btn.addEventListener("click", () => {
+        const cmd = btn.getAttribute("data-cmd");
+        sendCommand(cmd);
+      });
+    });
+  </script>
 
 </body>
 </html>
