@@ -2,8 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Control Bluetooth Carro U/D/L/R/S</title>
-
+  <title>Control Bluetooth Carro (Presionar = Mover)</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <style>
@@ -29,7 +28,7 @@
 
     button {
       border: none;
-      border-radius: 10px;
+      border-radius: 12px;
       font-size: 18px;
       cursor: pointer;
       background: #2563eb;
@@ -61,7 +60,7 @@
 <body>
 
   <h2>Control del Carro por Bluetooth</h2>
-  <p>U = Avanzar | D = Retroceder | L = Izquierda | R = Derecha | S = Stop</p>
+  <p>Presiona = se mueve | Suelta = se detiene</p>
 
   <button id="connectBtn">🔌 Conectar Bluetooth</button>
   <div id="status">No conectado</div>
@@ -92,36 +91,35 @@
       try {
         port = await navigator.serial.requestPort();
         await port.open({ baudRate: 9600 });
-
         writer = port.writable.getWriter();
-
-        statusEl.textContent = "✅ Conectado al HC-05 / HC-06";
+        statusEl.textContent = "✅ Conectado al Bluetooth";
       } catch (err) {
         statusEl.textContent = "❌ Error: " + err;
       }
     }
 
     async function sendCommand(cmd) {
-      if (!writer) {
-        statusEl.textContent = "⚠️ Primero conecta el Bluetooth";
-        return;
-      }
-
+      if (!writer) return;
       const data = new TextEncoder().encode(cmd);
       await writer.write(data);
-
-      statusEl.textContent = "📤 Enviado: " + cmd;
     }
 
-    connectBtn.addEventListener("click", () => {
-      connectSerial();
-    });
+    connectBtn.addEventListener("click", connectSerial);
 
     buttons.forEach(btn => {
-      btn.addEventListener("click", () => {
-        const cmd = btn.getAttribute("data-cmd");
+      const cmd = btn.dataset.cmd;
+
+      // Cuando PRESIONAS → mover
+      btn.addEventListener("mousedown", () => sendCommand(cmd));
+      btn.addEventListener("touchstart", (e) => {
+        e.preventDefault();
         sendCommand(cmd);
       });
+
+      // Cuando SUELTAS → STOP
+      btn.addEventListener("mouseup", () => sendCommand("S"));
+      btn.addEventListener("mouseleave", () => sendCommand("S"));
+      btn.addEventListener("touchend", () => sendCommand("S"));
     });
   </script>
 
