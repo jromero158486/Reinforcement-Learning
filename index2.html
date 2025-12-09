@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Control Bluetooth Carro</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+      margin-top: 25px;
+    }
+
+    h2 { margin-bottom: 2px; }
+
+    .top-buttons {
+      display: flex;
+      gap: 12px;
+      margin-top: 8px;
+    }
+
+    .buttons {
+      display: grid;
+      grid-template-columns: repeat(3, 80px);
+      grid-template-rows: repeat(3, 60px);
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    button {
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      cursor: pointer;
+      background: #2563eb;
+      color: white;
+      padding: 10px;
+    }
+
+    button:active {
+      background: #60a5fa;
+    }
+
+    #stopBtn {
+      background: #dc2626;
+    }
+
+    #connectBtn {
+      background: #16a34a;
+    }
+
+    .modeBtn {
+      background: #9333ea;
+    }
+
+    #status {
+      font-size: 14px;
+      color: #93c5fd;
+      margin-top: 4px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h2>Control del Carro por Bluetooth</h2>
+  <div id="status">❌ No conectado</div>
+
+  <!-- BOTONES PRINCIPALES -->
+  <div class="top-buttons">
+    <button id="connectBtn">🔌 Conectar</button>
+    <button class="modeBtn" onclick="sendCommand('A')">🤖 AUTO</button>
+    <button class="modeBtn" onclick="sendCommand('M')">🕹 MANUAL</button>
+  </div>
+
+  <!-- BOTONERA DE MOVIMIENTO -->
+  <div class="buttons">
+    <div></div>
+    <button data-cmd="U">⬆️</button>
+    <div></div>
+
+    <button data-cmd="L">⬅️</button>
+    <button id="stopBtn" data-cmd="S">⏹</button>
+    <button data-cmd="R">➡️</button>
+
+    <div></div>
+    <button data-cmd="D">⬇️</button>
+    <div></div>
+  </div>
+
+  <script>
+    let port = null;
+    let writer = null;
+
+    const statusEl = document.getElementById("status");
+    const connectBtn = document.getElementById("connectBtn");
+    const buttons = document.querySelectorAll("button[data-cmd]");
+
+    async function connectSerial() {
+      try {
+        port = await navigator.serial.requestPort();
+        await port.open({ baudRate: 9600 });
+        writer = port.writable.getWriter();
+        statusEl.textContent = "✅ Conectado al Bluetooth";
+      } catch (err) {
+        statusEl.textContent = "❌ Error al conectar";
+        console.error(err);
+      }
+    }
+
+    async function sendCommand(cmd) {
+      if (!writer) {
+        statusEl.textContent = "⚠️ Primero conecta el Bluetooth";
+        return;
+      }
+      const data = new TextEncoder().encode(cmd);
+      await writer.write(data);
+    }
+
+    connectBtn.addEventListener("click", connectSerial);
+
+    // MOVER SOLO MIENTRAS PRESIONAS
+    buttons.forEach(btn => {
+      const cmd = btn.dataset.cmd;
+
+      btn.addEventListener("mousedown", () => sendCommand(cmd));
+      btn.addEventListener("mouseup", () => sendCommand("S"));
+      btn.addEventListener("mouseleave", () => sendCommand("S"));
+
+      btn.addEventListener("touchstart", (e) => {
+        e.preventDefault();
+        sendCommand(cmd);
+      });
+
+      btn.addEventListener("touchend", () => sendCommand("S"));
+    });
+  </script>
+
+</body>
+</html>
