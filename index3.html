@@ -2,7 +2,7 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>RL Car Dashboard – Web Serial</title>
+  <title>Control + RL Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -10,75 +10,137 @@
   <style>
     body {
       font-family: Arial, sans-serif;
-      background: #0f172a;
-      color: white;
+      background: #020617;
+      color: #e5e7eb;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 20px;
+      gap: 16px;
       padding: 20px;
     }
+
+    h2 { margin-bottom: 4px; }
+
+    #status { font-size: 14px; color: #93c5fd; }
+
+    .top-buttons, .move-buttons {
+      display: flex;
+      gap: 12px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .pad {
+      display: grid;
+      grid-template-columns: repeat(3, 80px);
+      grid-template-rows: repeat(3, 60px);
+      gap: 12px;
+      margin-top: 14px;
+    }
+
     button {
-      background: #2563eb;
       border: none;
-      padding: 10px 18px;
-      color: white;
-      border-radius: 10px;
+      border-radius: 12px;
       font-size: 16px;
       cursor: pointer;
+      background: #2563eb;
+      color: white;
+      padding: 10px;
     }
-    button:active { background: #1e40af; }
+    button:active { background: #60a5fa; }
     #stopBtn { background: #dc2626; }
     #connectBtn { background: #16a34a; }
+    .modeBtn { background: #7c3aed; }
+
+    .charts {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      justify-content: center;
+      margin-top: 10px;
+    }
+
+    .card {
+      background: #020617;
+      border-radius: 12px;
+      padding: 10px;
+      box-shadow: 0 0 15px #000;
+    }
 
     canvas {
-      background: #1e293b;
-      padding: 10px;
-      border-radius: 10px;
+      background: #0f172a;
+      border-radius: 8px;
     }
   </style>
 </head>
 
 <body>
 
-  <h2>Jos RL Car Dashboard</h2>
+  <h2>Control del Carro + RL Dashboard</h2>
   <div id="status">❌ No conectado</div>
 
-  <button id="connectBtn">🔌 Conectar USB</button>
-
-  <div>
-    <button onclick="sendCmd('A')">🤖 AUTO</button>
-    <button onclick="sendCmd('M')">🕹 MANUAL</button>
-    <button id="stopBtn" onclick="sendCmd('S')">⏹ STOP</button>
+  <!-- BOTONES SUPERIORES -->
+  <div class="top-buttons">
+    <button id="connectBtn">🔌 Conectar Puerto Serie</button>
+    <button class="modeBtn" onclick="sendCommand('A')">🤖 AUTO (RL)</button>
+    <button class="modeBtn" onclick="sendCommand('M')">🕹 MANUAL</button>
+    <button id="stopBtn" onclick="sendCommand('S')">⏹ STOP</button>
   </div>
 
-  <div>
-    <button onclick="sendCmd('F')">⬆ FWD</button>
-    <button onclick="sendCmd('L')">⬅ LEFT</button>
-    <button onclick="sendCmd('R')">➡ RIGHT</button>
-    <button onclick="sendCmd('B')">⬇ BACK</button>
+  <!-- CRUCETA DE MOVIMIENTO -->
+  <div class="pad">
+    <div></div>
+    <button data-cmd="F">⬆️</button>
+    <div></div>
+
+    <button data-cmd="L">⬅️</button>
+    <button data-cmd="S" id="stopCenter">⏹</button>
+    <button data-cmd="R">➡️</button>
+
+    <div></div>
+    <button data-cmd="B">⬇️</button>
+    <div></div>
   </div>
 
-  <h3>Radar (Distancia)</h3>
-  <canvas id="radarChart" width="300" height="150"></canvas>
+  <div class="charts">
+    <div class="card">
+      <h3>Radar – Distancia frontal</h3>
+      <canvas id="radarChart" width="260" height="200"></canvas>
+    </div>
 
-  <h3>RL: Reward & Epsilon</h3>
-  <canvas id="rlChart" width="350" height="150"></canvas>
-
+    <div class="card">
+      <h3>Learning – Reward & Epsilon</h3>
+      <canvas id="rlChart" width="320" height="200"></canvas>
+    </div>
+  </div>
 
 <script>
-  let port, reader, writer;
-  const statusEl = document.getElementById("status");
+  let port = null;
+  let reader = null;
+  let writer = null;
+  let readBuffer = "";
 
-  // ----------------- CHARTS -----------------
+  const statusEl = document.getElementById("status");
+  const connectBtn = document.getElementById("connectBtn");
+  const buttons = document.querySelectorAll("button[data-cmd]");
+
+  // --------- GRÁFICOS ----------
   const radarCtx = document.getElementById("radarChart").getContext("2d");
   const radarChart = new Chart(radarCtx, {
-    type: 'bar',
+    type: "bar",
     data: {
-      labels: ['Front'],
-      datasets: [{ label: 'cm', data: [0] }]
+      labels: ["Front"],
+      datasets: [{
+        label: "Distancia (cm)",
+        data: [0]
+      }]
     },
-    options: { scales: { y: { min: 0, max: 100 }}}
+    options: {
+      scales: {
+        y: { min: 0, max: 120 }
+      }
+    }
   });
 
   const rlCtx = document.getElementById("rlChart").getContext("2d");
@@ -86,46 +148,86 @@
   const rlReward = [];
   const rlEps = [];
   const rlChart = new Chart(rlCtx, {
-    type: 'line',
+    type: "line",
     data: {
       labels: rlLabels,
       datasets: [
-        { label: "Reward", data: rlReward, borderColor: "yellow" },
-        { label: "Epsilon", data: rlEps, borderColor: "cyan" }
+        {
+          label: "Reward",
+          data: rlReward,
+          borderColor: "yellow",
+          tension: 0.2
+        },
+        {
+          label: "Epsilon",
+          data: rlEps,
+          borderColor: "cyan",
+          tension: 0.2
+        }
       ]
+    },
+    options: {
+      scales: {
+        y: { position: "left" }
+      }
     }
   });
 
-  // ---------------- CONNECT USB ----------------
-  document.getElementById("connectBtn").addEventListener("click", async () => {
+  // --------- CONEXIÓN SERIAL ----------
+  connectBtn.addEventListener("click", async () => {
     try {
       port = await navigator.serial.requestPort();
       await port.open({ baudRate: 9600 });
-      statusEl.textContent = "✅ Conectado";
 
       writer = port.writable.getWriter();
       reader = port.readable.getReader();
+
+      statusEl.textContent = "✅ Conectado al puerto serie";
       readLoop();
-    } catch (e) {
+    } catch (err) {
+      console.error(err);
       statusEl.textContent = "❌ Error al conectar";
-      console.log(e);
     }
   });
 
-  // ---------------- SEND COMMAND ----------------
-  async function sendCmd(cmd) {
-    if (!writer) return;
-    await writer.write(new TextEncoder().encode(cmd + "\n"));
+  async function sendCommand(cmd) {
+    if (!writer) {
+      statusEl.textContent = "⚠️ Primero conecta el puerto serie";
+      return;
+    }
+    const data = new TextEncoder().encode(cmd);
+    await writer.write(data);
   }
 
-  // ---------------- RECEIVE DATA ----------------
+  // Movimiento mientras presionas
+  buttons.forEach(btn => {
+    const cmd = btn.dataset.cmd;
+
+    btn.addEventListener("mousedown", () => sendCommand(cmd));
+    btn.addEventListener("mouseup",   () => sendCommand("S"));
+    btn.addEventListener("mouseleave",() => sendCommand("S"));
+
+    btn.addEventListener("touchstart", (e) => {
+      e.preventDefault();
+      sendCommand(cmd);
+    });
+    btn.addEventListener("touchend", () => sendCommand("S"));
+  });
+
+  // --------- LECTURA DE DATOS DESDE ARDUINO ----------
   async function readLoop() {
-    while (port.readable) {
+    const decoder = new TextDecoder();
+    while (port && port.readable) {
       const { value, done } = await reader.read();
       if (done) break;
 
-      const text = new TextDecoder().decode(value);
-      text.split("\n").forEach(handleLine);
+      const chunk = decoder.decode(value);
+      readBuffer += chunk;
+
+      let lines = readBuffer.split("\n");
+      readBuffer = lines.pop();  // lo que quedó incompleto
+
+      lines.forEach(handleLine);
     }
   }
 
@@ -136,30 +238,35 @@
     // Ej: RADAR,34.5
     if (line.startsWith("RADAR")) {
       const parts = line.split(",");
-      const d = parseFloat(parts[1] || 0);
+      const d = parseFloat(parts[1] || "0");
       radarChart.data.datasets[0].data[0] = d;
-      radarChart.update('none');
+      radarChart.update("none");
+      return;
     }
 
     // Ej: RL,3.2,0.54
     if (line.startsWith("RL")) {
       const parts = line.split(",");
-      const reward = parseFloat(parts[1]);
-      const eps = parseFloat(parts[2]);
+      const r  = parseFloat(parts[1] || "0");
+      const ep = parseFloat(parts[2] || "0");
 
       rlLabels.push("");
-      rlReward.push(reward);
-      rlEps.push(eps);
+      rlReward.push(r);
+      rlEps.push(ep);
 
-      if (rlLabels.length > 100) {
+      if (rlLabels.length > 120) {
         rlLabels.shift();
         rlReward.shift();
         rlEps.shift();
       }
-
-      rlChart.update('none');
+      rlChart.update("none");
+      return;
     }
+
+    // Por si quieres debuggear otros mensajes
+    console.log("RX:", line);
   }
 </script>
+
 </body>
 </html>
