@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>RL Car Dashboard – Web Serial</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #0f172a;
+      color: white;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      padding: 20px;
+    }
+    button {
+      background: #2563eb;
+      border: none;
+      padding: 10px 18px;
+      color: white;
+      border-radius: 10px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+    button:active { background: #1e40af; }
+    #stopBtn { background: #dc2626; }
+    #connectBtn { background: #16a34a; }
+
+    canvas {
+      background: #1e293b;
+      padding: 10px;
+      border-radius: 10px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <h2>Jos RL Car Dashboard</h2>
+  <div id="status">❌ No conectado</div>
+
+  <button id="connectBtn">🔌 Conectar USB</button>
+
+  <div>
+    <button onclick="sendCmd('A')">🤖 AUTO</button>
+    <button onclick="sendCmd('M')">🕹 MANUAL</button>
+    <button id="stopBtn" onclick="sendCmd('S')">⏹ STOP</button>
+  </div>
+
+  <div>
+    <button onclick="sendCmd('F')">⬆ FWD</button>
+    <button onclick="sendCmd('L')">⬅ LEFT</button>
+    <button onclick="sendCmd('R')">➡ RIGHT</button>
+    <button onclick="sendCmd('B')">⬇ BACK</button>
+  </div>
+
+  <h3>Radar (Distancia)</h3>
+  <canvas id="radarChart" width="300" height="150"></canvas>
+
+  <h3>RL: Reward & Epsilon</h3>
+  <canvas id="rlChart" width="350" height="150"></canvas>
+
+
+<script>
+  let port, reader, writer;
+  const statusEl = document.getElementById("status");
+
+  // ----------------- CHARTS -----------------
+  const radarCtx = document.getElementById("radarChart").getContext("2d");
+  const radarChart = new Chart(radarCtx, {
+    type: 'bar',
+    data: {
+      labels: ['Front'],
+      datasets: [{ label: 'cm', data: [0] }]
+    },
+    options: { scales: { y: { min: 0, max: 100 }}}
+  });
+
+  const rlCtx = document.getElementById("rlChart").getContext("2d");
+  const rlLabels = [];
+  const rlReward = [];
+  const rlEps = [];
+  const rlChart = new Chart(rlCtx, {
+    type: 'line',
+    data: {
+      labels: rlLabels,
+      datasets: [
+        { label: "Reward", data: rlReward, borderColor: "yellow" },
+        { label: "Epsilon", data: rlEps, borderColor: "cyan" }
+      ]
+    }
+  });
+
+  // ---------------- CONNECT USB ----------------
+  document.getElementById("connectBtn").addEventListener("click", async () => {
+    try {
+      port = await navigator.serial.requestPort();
+      await port.open({ baudRate: 9600 });
+      statusEl.textContent = "✅ Conectado";
+
+      writer = port.writable.getWriter();
+      reader = port.readable.getReader();
+      readLoop();
+    } catch (e) {
+      statusEl.textContent = "❌ Error al conectar";
+      console.log(e);
+    }
+  });
+
+  // ---------------- SEND COMMAND ----------------
+  async function sendCmd(cmd) {
+    if (!writer) return;
+    await writer.write(new TextEncoder().encode(cmd + "\n"));
+  }
+
+  // ---------------- RECEIVE DATA ----------------
+  async function readLoop() {
+    while (port.readable) {
+      const { value, done } = await reader.read();
+      if (done) break;
+
+      const text = new TextDecoder().decode(value);
+      text.split("\n").forEach(handleLine);
+    }
+  }
+
+  function handleLine(line) {
+    line = line.trim();
+    if (!line) return;
+
+    // Ej: RADAR,34.5
+    if (line.startsWith("RADAR")) {
+      const parts = line.split(",");
+      const d = parseFloat(parts[1] || 0);
+      radarChart.data.datasets[0].data[0] = d;
+      radarChart.update('none');
+    }
+
+    // Ej: RL,3.2,0.54
+    if (line.startsWith("RL")) {
+      const parts = line.split(",");
+      const reward = parseFloat(parts[1]);
+      const eps = parseFloat(parts[2]);
+
+      rlLabels.push("");
+      rlReward.push(reward);
+      rlEps.push(eps);
+
+      if (rlLabels.length > 100) {
+        rlLabels.shift();
+        rlReward.shift();
+        rlEps.shift();
+      }
+
+      rlChart.update('none');
+    }
+  }
+</script>
+</body>
+</html>
