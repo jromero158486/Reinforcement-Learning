@@ -6,6 +6,10 @@ The robot uses an ultrasonic sensor to measure distance and chooses between five
 
 ![RL Robot Car](docs/images/robot.png)
 
+## Tech stack
+
+`Arduino (C/C++)` · `Q-learning` · `HTML` · `JavaScript` · `Web Serial API`
+
 ## Hardware
 
 - Arduino Uno
