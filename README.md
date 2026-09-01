@@ -4,7 +4,7 @@ Arduino-based robot car with a Q-learning controller for obstacle avoidance.
 
 The robot uses an ultrasonic sensor to measure distance and chooses between five actions: forward, left, right, backward, and stop.
 
-![RL Robot Car](docs/images/robot.jpg)
+![RL Robot Car](docs/images/robot.png)
 
 ## Hardware
 
