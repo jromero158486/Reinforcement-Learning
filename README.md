@@ -54,5 +54,3 @@ The reward increases when the robot moves away from an obstacle or moves forward
 `web/dashboard.html` connects to the robot through the Web Serial API and provides manual controls, distance telemetry, obstacle status, and an RL mode.
 
 ````
-
-Si además quieres usar **el diagrama de conexiones de tu presentación**, la página 8 es perfecta para una segunda imagen en la sección Hardware porque muestra Arduino, L298N, HC-SR04, motores y batería juntos. 
