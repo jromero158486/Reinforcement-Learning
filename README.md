@@ -52,5 +52,3 @@ The reward increases when the robot moves away from an obstacle or moves forward
 ## Dashboard
 
 `web/dashboard.html` connects to the robot through the Web Serial API and provides manual controls, distance telemetry, obstacle status, and an RL mode.
-
-````
